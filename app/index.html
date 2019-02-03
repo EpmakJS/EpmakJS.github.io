@@ -50,14 +50,17 @@
 						<tr>
 							<th ><input id="main-checkbox" name="select_all" value="1" type="checkbox"></th>
 							<th>Name</th>
-							<th>Last Visit</th>
+							<th>Last Sign In</th>
 						</tr>
 					</thead>
 					<tbody id="user-list"></tbody>
 				</table>
 			</div>
 		</main>
+	</div>
 
+	<div id="block-notification" class="container">
+		<h3>You've been blocked!</h3>
 	</div>
 
 	<div id="auth-form" class="container">
@@ -67,11 +70,11 @@
 				<a id="fblogin" href="#" class="facebook">
 					<i class="fab fa-facebook-f" aria-hidden="true"></i>
 				</a> <br />
-				<a href="#" class="twitter">
-					<i id="twlogin" class="fab fa-twitter" aria-hidden="true"></i>
+				<a id="twlogin" href="#" class="twitter">
+					<i class="fab fa-twitter" aria-hidden="true"></i>
 				</a> <br />
-				<a id="gplogin" href="#" class="google-plus">
-					<i class="fab fa-google-plus-g" aria-hidden="true"></i>
+				<a id="glogin" href="#" class="google">
+					<i class="fab fa-google" aria-hidden="true"></i>
 				</a>
 			</div>
 		</form>
@@ -79,16 +82,17 @@
 
 
 
+
 	
 	<script>
 	// Initialize Firebase
 	var config = {
-		apiKey: "AIzaSyC7WBi_J6yyGmfNNSoHfUvTYK57ancle2w",
-		authDomain: "admin-page-2f8cc.firebaseapp.com",
-		databaseURL: "https://admin-page-2f8cc.firebaseio.com",
-		projectId: "admin-page-2f8cc",
-		storageBucket: "admin-page-2f8cc.appspot.com",
-		messagingSenderId: "763685112850"
+		apiKey: "AIzaSyC7x_lxfIw3pLkn70KbIBWLiGrKS5XVSX0",
+		authDomain: "admin-page-641a0.firebaseapp.com",
+		databaseURL: "https://admin-page-641a0.firebaseio.com",
+		projectId: "admin-page-641a0",
+		storageBucket: "admin-page-641a0.appspot.com",
+		messagingSenderId: "701547474025"
 	};
 	firebase.initializeApp(config);
 	const db = firebase.firestore();

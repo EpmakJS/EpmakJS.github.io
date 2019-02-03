@@ -1,13 +1,27 @@
 $(function() {
-	firebase.auth().onAuthStateChanged(function(user) {
-		if (user) {
-			document.getElementById('user-logged').style.display = 'block';
-			document.getElementById('auth-form').style.display = 'none';
+	function showMainPage() {
+		document.getElementById('user-logged').style.display = 'block';
+		document.getElementById('auth-form').style.display = 'none';
+	}
 
-			let user = firebase.auth().currentUser;
-			let name = user.displayName;
-			let lastSignInTime = user.metadata.lastSignInTime;
-			let uid = user.providerData[0].uid;
+	function showAuthPage() {
+		document.getElementById('user-logged').style.display = 'none';
+		document.getElementById('auth-form').style.display = 'block';
+	}
+
+	function showBlockPage() {
+		document.getElementById('user-logged').style.display = 'none';
+		document.getElementById('block-notification').style.display = 'block';
+		document.getElementById('auth-form').style.display = 'block';
+	}
+
+	firebase.auth().onAuthStateChanged(function(user) {
+
+		if (user) {
+			let currentUser = firebase.auth().currentUser;
+			let name = currentUser.displayName;
+			let lastSignInTime = currentUser.metadata.lastSignInTime;
+			let uid = currentUser.providerData[0].uid;
 
 			db.collection('users').get().then((snap) => {
 				if(!snap.docs.some(doc => doc.data().uid == uid)) {
@@ -17,12 +31,17 @@ $(function() {
 						uid: uid,
 						isBlocked: false
 					});
+					showMainPage();
+				} else if (snap.docs.some(doc => doc.data().uid == uid && !doc.data().isBlocked)) {
+					showMainPage();
+				} else {
+					firebase.auth().signOut();
+					showBlockPage();
 				}
 			})
 
 		} else {
-			document.getElementById('user-logged').style.display = 'none';
-			document.getElementById('auth-form').style.display = 'block';
+			showAuthPage();
 		}
 	});
 
@@ -30,35 +49,30 @@ $(function() {
 	$("#fblogin").click(function(event){
 		event.preventDefault();
 
-		var provider = new firebase.auth.FacebookAuthProvider();
+		let provider = new firebase.auth.FacebookAuthProvider();
 		firebase.auth().signInWithRedirect(provider);
+		firebase.auth().getRedirectResult();
+	});
 
-		firebase.auth().getRedirectResult().then(function(result) {
-			if (result.credential) {
-			// This gives you a Facebook Access Token. You can use it to access the Facebook API.
-			var token = result.credential.accessToken;
-			}
-			// The signed-in user info.
-			var user = result.user;
-		}).catch(function(error) {
-			// Handle Errors here.
-			var errorCode = error.code;
-			var errorMessage = error.message;
-			// The email of the user's account used.
-			var email = error.email;
-			// The firebase.auth.AuthCredential type that was used.
-			var credential = error.credential;
-			// ...
-		});
+	$("#glogin").click(function(event){
+		event.preventDefault();
+
+		let provider = new firebase.auth.GoogleAuthProvider();
+		firebase.auth().signInWithRedirect(provider);
+		firebase.auth().getRedirectResult();
+	});
+
+	$("#twlogin").click(function(event){
+		event.preventDefault();
+
+		let provider = new firebase.auth.TwitterAuthProvider();
+		firebase.auth().signInWithRedirect(provider);
+		firebase.auth().getRedirectResult();
 	});
 	
 	$("#btn-user-logout").click(function(){
-		firebase.auth().signOut().then(function() {
-			// Sign-out successful.
-		});
+		firebase.auth().signOut();
 	});
-
-	
 
 	const userList = document.querySelector('#user-list');
 
@@ -80,11 +94,17 @@ $(function() {
 		td.appendChild(input);
 		tr.appendChild(name);
 		tr.appendChild(lastVisit);
+		if(doc.data().isBlocked) {
+			tr.style.background = '#e9544f';
+		}
 
 		userList.appendChild(tr);
 
-		//Deleting data
+
+		//Delete/Block/Unblock user
 		let userDelete = document.querySelector('#btn-user-delete');
+		let userBlock = document.querySelector('#btn-user-block');
+		let userUnblock = document.querySelector('#btn-user-unblock');
 		let inputs = document.querySelectorAll('tbody>tr>td>input');
 
 
@@ -99,6 +119,59 @@ $(function() {
 			})
 		})
 
+		userBlock.addEventListener('click', (e) => {
+			e.stopPropagation();
+
+			inputs.forEach(function(input) {
+				if (input.checked) {
+					let id = input.parentElement.parentElement.getAttribute('data-id');
+					let tr = input.parentElement.parentElement;
+					let docRef = db.collection("users").doc(id);
+
+					return db.runTransaction(function(transaction) {
+						return transaction.get(docRef).then(function(doc) {
+							if (!doc.exists) {
+								throw "Document does not exist!";
+							}
+
+							let newState = doc.data().isBlocked = true;
+							transaction.update(docRef, { isBlocked: newState });
+						});
+					}).then(function() {
+						tr.style.background ='#e9544f';
+					}).catch(function(error) {
+						console.log("Transaction failed: ", error);
+					});
+				}
+			})
+		})
+
+		userUnblock.addEventListener('click', (e) => {
+			e.stopPropagation();
+
+			inputs.forEach(function(input) {
+				if (input.checked) {
+					let id = input.parentElement.parentElement.getAttribute('data-id');
+					let docRef = db.collection("users").doc(id);
+
+					return db.runTransaction(function(transaction) {
+						return transaction.get(docRef).then(function(doc) {
+							if (!doc.exists) {
+								throw "Document does not exist!";
+							}
+
+							let newState = doc.data().isBlocked = false;
+							transaction.update(docRef, { isBlocked: newState });
+						});
+					}).then(function() {
+						tr.removeAttribute('style');
+					}).catch(function(error) {
+						console.log("Transaction failed: ", error);
+					});
+				}
+			})
+		})
+
 	}
 
 	db.collection('users').orderBy('lastVisit').onSnapshot(snapshot => {
@@ -108,9 +181,28 @@ $(function() {
 				renderUser(change.doc);
 				fixCheckboxes();
 			} else if (change.type == 'removed'){
-				let tr = userList.querySelector('[data-id=' + change.doc.id + ']');
-				userList.removeChild(tr);
-				fixCheckboxes();
+				db.collection('users').get().then((snap) => {
+					if(snap.docs.some(doc => doc.data().uid == firebase.auth().currentUser.providerData[0].uid)) {
+						let tr = userList.querySelector('[data-id=' + change.doc.id + ']');
+						userList.removeChild(tr);
+						fixCheckboxes();
+					} else {
+						let tr = userList.querySelector('[data-id=' + change.doc.id + ']');
+						userList.removeChild(tr);
+						firebase.auth().signOut();
+					}
+				});
+			} else if (change.type == 'modified') {
+				db.collection('users').get().then((snap) => {
+					snap.docs.forEach(doc => {
+						if(doc.data().isBlocked == true) {
+							if(doc.data().uid == firebase.auth().currentUser.providerData[0].uid) {
+								firebase.auth().signOut();
+								showBlockPage();
+							}
+						}
+					})
+				})
 			}
 		});
 	});
